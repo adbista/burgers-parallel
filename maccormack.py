@@ -132,7 +132,7 @@ def simulate_maccormack(
     images = []
     for u_frame, t in zip(frames, saved_times):
         fig, ax = plt.subplots()
-        ax.plot(x, u_frame, lw=2, color='red') # Zmieniłem kolor na czerwony dla odróżnienia
+        ax.plot(x, u_frame, lw=2)
         ax.set_xlabel("x")
         ax.set_ylabel("u(x,t)")
         ax.set_title(f"MacCormack Burgers, t = {t:.3f}")

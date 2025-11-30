@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import imageio.v2 as imageio
+import time
 
 def build_matrix_A(N, mu, dt, dx):
     """
@@ -109,14 +110,6 @@ def initial_condition(x):
     u0[(x > 0.1) & (x < 0.4)] = 2.0
     return u0
 
-# def initial_condition(x, mu=0.1):
-#     # Wzór (1.9) z PDF (strona 8)
-#     # u0(x) = (2 * mu * pi * sin(pi * x)) / (a + cos(pi * x))
-    
-#     a = 1.1 # Przykładowa wartość (autor pisze "for a > 1")
-#     return (2 * mu * np.pi * np.sin(np.pi * x)) / (a + np.cos(np.pi * x))
-
-
 
 def simulate_and_save(
     N=201,
@@ -129,30 +122,14 @@ def simulate_and_save(
     results_filename="results_rusanov.txt",
     gif_filename="burgers_rusanov.gif"
 ):
-    """
-    Główna pętla czasowa:
-
-      1. Dyskretyzacja dziedziny: x_i, Δx
-      2. Dobór kroku czasu Δt z warunku CFL
-      3. Zbudowanie macierzy A
-      4. Ustawienie warunku początkowego u^0
-      5. Dla n = 0..n_steps:
-           a) zapis u^n do pliku results_rusanov.txt (co save_every kroków)
-           b) obliczenie b_i dokładnie z wzoru z 2.1.1
-           c) rozwiązanie A u^{n+1} = b
-    """
     x = np.linspace(0.0, L, N)
     dx = x[1] - x[0]
 
-    # prosty warunek CFL przy założeniu max |u| ≈ 2
     umax = 2.0
     dt = cfl * dx / max(umax, 1e-8)
     n_steps = int(T_final / dt) + 1
 
-    # macierz A (stała w czasie)
     A = build_matrix_A(N, mu, dt, dx)
-
-    # u^0
     u = initial_condition(x)
 
     saved_profiles = []
@@ -164,10 +141,11 @@ def simulate_and_save(
     umin = np.min(u)
     umax_val = np.max(u)
 
+    t0 = time.perf_counter()  # start pomiaru
+
     for n in range(n_steps):
         t = n * dt
 
-        # zapis wybranych kroków czasowych
         if n % save_every == 0 or n == n_steps - 1:
             saved_profiles.append(u.copy())
             saved_times.append(t)
@@ -180,10 +158,11 @@ def simulate_and_save(
             umin = min(umin, np.min(u))
             umax_val = max(umax_val, np.max(u))
 
-        # krok Rusanova: A u^{n+1} = b (z b_i jak w PDF)
         u = rusanov_step(u, A, dt, dx, mu, w)
 
-    # tworzenie gifa z zapisanych profili
+    t1 = time.perf_counter()  # koniec pomiaru
+    print(f"Czas obliczeń (symulacja + zapis do pliku): {t1 - t0:.4f} s")
+
     images = []
     for u_frame, t in zip(saved_profiles, saved_times):
         fig, ax = plt.subplots()
