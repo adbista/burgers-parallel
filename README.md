@@ -47,3 +47,18 @@ Cechy:
 Równoległość (prosta do realizacji):
 - potrzebna jest wymiana halo w predyktorze i korektorze,
 - nie ma globalnego układu do rozwiązania, więc dobrze działa na wielu procesach.
+
+
+
+
+Przebieg projektu
+- definicja problemu,
+- rozwiązania, krótki opis metod numerycznych
+- wybrane rozwiązanie sekwencyjne: 
+    - generowanie gifów dla różnych wartości parametrów
+- implementacja równoległa wybranego rozwiązania - najważniejsze miejsca w kodzie i gif końcowy
+    - konfiguracja bazowa
+    - najważniejsze miejsca w kodzie
+    - generowany gif
+    - wykresy przyspieszenia, efektywności, Karpa-Flatta
+- zastosowania i wnioski
