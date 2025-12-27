@@ -94,7 +94,8 @@ def roe_step_local(u_local, dt, dx, mu, global_start, N):
     if local_n <= 0:
         return u_local
 
-    apply_dirichlet(u_local, global_start, N)
+    # should it be here?
+    # apply_dirichlet(u_local, global_start, N)
 
     F = 0.5 * u_local**2
     phi = np.zeros_like(u_local)
@@ -120,7 +121,7 @@ def simulate_roe_parallel(
     mu=0.01,
     CFL=0.4,
     save_every=5,
-    results_filename="results_roe.txt",
+    results_filename="results_roe_mpi.txt",
 ):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -144,10 +145,11 @@ def simulate_roe_parallel(
     u_local[1:-1] = u0_global[global_start:global_end]
     apply_dirichlet(u_local, global_start, N)
 
-    left = rank - 1 if rank > 0 else MPI.PROC_NULL
-    right = rank + 1 if rank < size - 1 else MPI.PROC_NULL
+    left_neighbor = rank - 1 if rank > 0 else MPI.PROC_NULL
+    right_neighbor = rank + 1 if rank < size - 1 else MPI.PROC_NULL
 
     dt = compute_time_step(u_local, dx, mu, CFL, comm)
+    n_steps = int(T_final / dt) + 1
     if rank == 0:
         print(f"dx = {dx:.6e}, początkowy dt = {dt:.6e}")
 
@@ -159,11 +161,11 @@ def simulate_roe_parallel(
     dump_solution(comm, rank, size, u_local, x_global, t, results_filename)
     eps_t = 1e-12
 
-    while t < T_final - eps_t:
-        exchange_halo(comm, u_local, left, right)
-
-        dt = compute_time_step(u_local, dx, mu, CFL, comm)
-        dt = min(dt, T_final - t)
+    for step in range(n_steps):
+        t = step * dt
+        if t > T_final:
+            break
+        exchange_halo(comm, u_local, left_neighbor, right_neighbor)
 
         u_local = roe_step_local(u_local, dt, dx, mu, global_start, N)
 
@@ -171,9 +173,6 @@ def simulate_roe_parallel(
             raise FloatingPointError(
                 "Wykryto wartości NaN/Inf w rozwiązaniu. Zmniejsz CFL lub sprawdź parametry."
             )
-
-        t += dt
-        step += 1
 
         if step % save_every == 0 or t >= T_final - eps_t:
             dump_solution(comm, rank, size, u_local, x_global, t, results_filename)
