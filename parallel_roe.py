@@ -39,10 +39,8 @@ def exchange_halo(comm, u_local, left, right):
     recv_left = np.empty(1, dtype=np.float64)
     recv_right = np.empty(1, dtype=np.float64)
 
-    comm.Sendrecv(sendbuf=send_left, dest=left,
-                  recvbuf=recv_right, source=right)
-    comm.Sendrecv(sendbuf=send_right, dest=right,
-                  recvbuf=recv_left, source=left)
+    comm.Sendrecv(sendbuf=send_left, dest=left, recvbuf=recv_right, source=right)
+    comm.Sendrecv(sendbuf=send_right, dest=right, recvbuf=recv_left, source=left)
 
     if left != MPI.PROC_NULL:
         u_local[0] = recv_left[0]
@@ -98,11 +96,11 @@ def roe_step_local(u_local, dt, dx, mu, global_start, N):
 
     apply_dirichlet(u_local, global_start, N)
 
-    F = 0.5 * u_local ** 2
+    F = 0.5 * u_local**2
     phi = np.zeros_like(u_local)
     phi[1:] = 0.5 * np.abs(u_local[1:] + u_local[:-1]) * (u_local[1:] - u_local[:-1])
 
-    r = mu * dt / (dx ** 2)
+    r = mu * dt / (dx**2)
     coef = 0.5 * dt / dx
 
     conv = F[2:] - F[1:-1] - phi[2:] + phi[1:-1]
@@ -122,7 +120,7 @@ def simulate_roe_parallel(
     mu=0.01,
     CFL=0.4,
     save_every=5,
-    results_filename="results_roe.txt"
+    results_filename="results_roe.txt",
 ):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -196,5 +194,8 @@ if __name__ == "__main__":
         T_final = float(sys.argv[2])
     else:
         T_final = 0.5
+
+    if len(sys.argv) >= 4:
+        raise ValueError(f"Usage: {sys.argv[0]} [N] [T_final]")
 
     simulate_roe_parallel(N=N, T_final=T_final)
