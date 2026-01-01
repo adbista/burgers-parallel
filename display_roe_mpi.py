@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 """Wizualizacja wyników równoległej metody Roe dla równania Burgersa."""
+
 import numpy as np
-import importlib
+import matplotlib.pyplot as plt
+import imageio.v2 as imageio
 
-plt = importlib.import_module("matplotlib.pyplot")
-
-try:
-    imageio = importlib.import_module("imageio.v2")
-except ImportError:
-    imageio = importlib.import_module("imageio")
 
 RESULTS_FILE = "results_roe_mpi.txt"
 GIF_FILENAME = "burgers_roe_mpi.gif"
@@ -76,9 +72,9 @@ def generate_gif(frames, saved_times, x, gif_filename):
         fig.tight_layout()
         fig.canvas.draw()
 
-        w, h = fig.canvas.get_width_height()
-        buf = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-        images.append(buf.reshape((h, w, 3)))
+        image = np.asarray(fig.canvas.buffer_rgba())
+        images.append(image[:, :, :3])  # drop alpha channel
+
         plt.close(fig)
 
     imageio.mimsave(gif_filename, images, fps=10)
