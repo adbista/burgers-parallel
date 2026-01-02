@@ -4,10 +4,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import imageio.v2 as imageio
+import sys
 
+# Usage: sys.argv[0] [result_filename] [gif_filename]
 
-RESULTS_FILE = "results_roe_mpi.txt"
-GIF_FILENAME = "burgers_roe_mpi.gif"
+RESULTS_FILE = sys.argv[1] if len(sys.argv) >= 2 else "results_roe_mpi.txt"
+GIF_FILENAME = sys.argv[2] if len(sys.argv) >= 3 else "burgers_roe_mpi.gif"
 
 
 def load_results(filename):
