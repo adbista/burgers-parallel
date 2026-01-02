@@ -54,6 +54,12 @@ def exchange_halo(comm, u_local, left, right):
 
 
 def compute_time_step(u_local, dx, mu, CFL, comm):
+    """
+    TODO: Currently not used - it does not work for more than 210 points in space.
+
+    If one wants it to work, then sure, debug it and find the problem.
+    """
+
     interior = u_local[1:-1]
     umax_local = np.max(np.abs(interior)) if interior.size else 0.0
     umax = comm.allreduce(umax_local, op=MPI.MAX) if comm is not None else umax_local
@@ -94,7 +100,7 @@ def roe_step_local(u_local, dt, dx, mu, global_start, N):
     if local_n <= 0:
         return u_local
 
-    # should it be here?
+    # should it even be here?
     # apply_dirichlet(u_local, global_start, N)
 
     F = 0.5 * u_local**2
@@ -110,7 +116,8 @@ def roe_step_local(u_local, dt, dx, mu, global_start, N):
     u_next = u_local.copy()
     u_next[1:-1] = u_local[1:-1] - coef * conv + r * diff
 
-    apply_dirichlet(u_next, global_start, N)
+    # should it even be here?
+    # apply_dirichlet(u_next, global_start, N)
     return u_next
 
 
@@ -118,14 +125,16 @@ def simulate_roe_parallel(
     N=201,
     L=1.0,
     T_final=0.5,
+    dt=0.001,
     mu=0.01,
     CFL=0.4,
-    save_every=5,
-    results_filename="results_roe_mpi.txt",
+    save_every=-1,
 ):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
+
+    results_filename = f"results_roe_mpi_{size}.txt"
 
     x_global = np.linspace(0.0, L, N)
     dx = x_global[1] - x_global[0]
@@ -148,53 +157,53 @@ def simulate_roe_parallel(
     left_neighbor = rank - 1 if rank > 0 else MPI.PROC_NULL
     right_neighbor = rank + 1 if rank < size - 1 else MPI.PROC_NULL
 
-    dt = compute_time_step(u_local, dx, mu, CFL, comm)
+    # turn off for now; for more, see the "compute_time_step" function
+    # dt = compute_time_step(u_local, dx, mu, CFL, comm)
     n_steps = int(T_final / dt) + 1
     if rank == 0:
-        print(f"dx = {dx:.6e}, początkowy dt = {dt:.6e}")
+        print(f"dx = {dx:.6e}, dt = {dt:.6e}")
 
     comm.Barrier()
     t0 = MPI.Wtime()
 
-    t = 0.0
-    step = 0
-    dump_solution(comm, rank, size, u_local, x_global, t, results_filename)
-    eps_t = 1e-12
+    if (save_every > -1):
+        dump_solution(comm, rank, size, u_local, x_global, 0.0, results_filename)
 
     for step in range(n_steps):
         t = step * dt
         if t > T_final:
             break
         exchange_halo(comm, u_local, left_neighbor, right_neighbor)
-
+        apply_dirichlet(u_local, global_start, N) # I think it shpuld be here? But I'm not sure
         u_local = roe_step_local(u_local, dt, dx, mu, global_start, N)
 
         if not np.all(np.isfinite(u_local)):
-            raise FloatingPointError(
-                "Wykryto wartości NaN/Inf w rozwiązaniu. Zmniejsz CFL lub sprawdź parametry."
+            print(
+                "Wykryto wartości NaN/Inf w rozwiązaniu. Zmniejsz dt.",
+                file=sys.stderr,
             )
+            MPI.COMM_WORLD.Abort(1)
 
-        if step % save_every == 0 or t >= T_final - eps_t:
+        if save_every > -1 and (step % save_every == 0 or step == n_steps - 1):
             dump_solution(comm, rank, size, u_local, x_global, t, results_filename)
 
     comm.Barrier()
     t1 = MPI.Wtime()
     if rank == 0:
-        print(f"Czas obliczeń (symulacja + zapis): {t1 - t0:.4f} s")
+        print(
+            f"Czas obliczeń (symulacja{'+ zapis' if save_every > -1 else ''}): {t1 - t0:.4f} s"
+        )
+        with open("times.csv", "a") as times_csv:
+            # liczba_procesorów, czas_wykonywania, dx, dt
+            times_csv.write(f"{size},{t1 - t0:.4f},{dx},{dt}\n")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) >= 2:
-        N = int(sys.argv[1])
-    else:
-        N = 201
+    if len(sys.argv) > 4:
+        raise ValueError(f"Usage: {sys.argv[0]} <N> <T_final> <dt>")
 
-    if len(sys.argv) >= 3:
-        T_final = float(sys.argv[2])
-    else:
-        T_final = 0.5
+    N = int(sys.argv[1])
+    T_final = float(sys.argv[2])
+    dt = float(sys.argv[3])
 
-    if len(sys.argv) >= 4:
-        raise ValueError(f"Usage: {sys.argv[0]} [N] [T_final]")
-
-    simulate_roe_parallel(N=N, T_final=T_final)
+    simulate_roe_parallel(N=N, T_final=T_final, dt=dt)
