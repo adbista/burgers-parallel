@@ -100,9 +100,6 @@ def roe_step_local(u_local, dt, dx, mu, global_start, N):
     if local_n <= 0:
         return u_local
 
-    # should it even be here?
-    # apply_dirichlet(u_local, global_start, N)
-
     F = 0.5 * u_local**2
     phi = np.zeros_like(u_local)
     phi[1:] = 0.5 * np.abs(u_local[1:] + u_local[:-1]) * (u_local[1:] - u_local[:-1])
@@ -116,8 +113,6 @@ def roe_step_local(u_local, dt, dx, mu, global_start, N):
     u_next = u_local.copy()
     u_next[1:-1] = u_local[1:-1] - coef * conv + r * diff
 
-    # should it even be here?
-    # apply_dirichlet(u_next, global_start, N)
     return u_next
 
 
@@ -166,7 +161,7 @@ def simulate_roe_parallel(
     comm.Barrier()
     t0 = MPI.Wtime()
 
-    if (save_every > -1):
+    if save_every > -1:
         dump_solution(comm, rank, size, u_local, x_global, 0.0, results_filename)
 
     for step in range(n_steps):
@@ -174,8 +169,8 @@ def simulate_roe_parallel(
         if t > T_final:
             break
         exchange_halo(comm, u_local, left_neighbor, right_neighbor)
-        apply_dirichlet(u_local, global_start, N) # I think it shpuld be here? But I'm not sure
         u_local = roe_step_local(u_local, dt, dx, mu, global_start, N)
+        apply_dirichlet(u_local, global_start, N)
 
         if not np.all(np.isfinite(u_local)):
             print(
