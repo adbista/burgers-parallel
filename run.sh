@@ -1,35 +1,37 @@
 #!/bin/bash
-#SBATCH -A plgar2025-cpu
-#SBATCH -p plgrid
-#SBATCH -t 00:20:00
-#SBATCH -J burgers_roe
-#SBATCH -o burgers.out
-#SBATCH -e burgers.err
-#SBATCH -N 1
-#SBATCH --tasks-per-node=17
+#SBATCH --account=plgar2025-cpu
+#SBATCH --partition=plgrid
+#SBATCH --time=18:00:00
+#SBATCH --mem=10G
+#SBATCH --nodes=1
+#SBATCH --ntasks=32
 
-if [ $# -ne 2 ]; then
-    echo "Użycie: sbatch run_burgers.sh <num_processes> <N>"
-    exit 1
+if [ $# -ne 5 ]; then
+  echo "Użycie: $0 <program_name>  <num_processes> <N_grid_points> <T> <dt>"
+  echo "  <program_name> - nazwa programu python do uruchomienia; musi byc w folderze lokalnym"
+  echo "  <num_processes> - liczba równoległych procesów programu"
+  echo "  <N_grid_points> - liczba punktów w siatce 1D"
+  echo "  <T> - czas symulacji - od 0 aż do 'T'"
+  echo "  <dt> - krok czasowy symulacji"
+  exit 1
 fi
 
-NPROC=$1   # liczba procesów MPI
-NGRID=$2   # liczba punktów siatki N
+PROGRAM_NAME=$1    # nazwa programu python do uruchomienia
+NPROC=$2           # liczba procesów MPI
+NGRID=$3           # liczba punktów siatki N
+SIMULATION_TIME=$4 # czas trwania symulacji
+SIMULATION_DT=$5   # krok czasowy symulacji
 
-module load Python/3.10.8-GCCcore-12.2.0
 module load mpi4py/3.1.4-gompi-2022b
 module load scipy-bundle/2021.10-intel-2021b
 export SLURM_OVERLAP=1
 
-# ważne: ogranicz liczbę wątków OpenMP (jeśli biblioteki używają)
-export OMP_NUM_THREADS=1
-
 echo "=== Roe Burgers 1D MPI ==="
-echo "Procesy MPI      = ${NPROC}"
-echo "Liczba punktów N = ${NGRID}"
+echo "Uruchamiany program    = ${PROGRAM_NAME}"
+echo "Procesy MPI            = ${NPROC}"
+echo "Liczba punktów N       = ${NGRID}"
+echo "Czas symulacji         = ${SIMULATION_TIME}"
+echo "Krok czasowy symulacji = ${SIMULATION_DT}"
 echo "================================="
 
-# uruchomienie programu (zmień ścieżkę jeśli plik jest w innym katalogu)
-mpiexec -n ${NPROC} python parallel_roe.py ${NGRID} 0.5
-
-echo "=== Job finished ==="
+mpiexec -n "${NPROC}" python "${PROGRAM_NAME}" "${NGRID}" "${SIMULATION_TIME}" "${SIMULATION_DT}"
