@@ -95,7 +95,7 @@ def dump_solution(comm, rank, size, u_local, x_global, t, results_filename):
             f.write("\n")
 
 
-def roe_step_local(u_local, dt, dx, mu, global_start, N):
+def roe_step_local(u_local, dt, dx, mu):
     local_n = u_local.shape[0] - 2
     if local_n <= 0:
         return u_local
@@ -135,13 +135,6 @@ def simulate_roe_parallel(
     dx = x_global[1] - x_global[0]
     u0_global = initial_condition(x_global)
 
-    if rank == 0:
-        print("Roe Burgers 1D MPI")
-        print(f"N = {N}, L = {L}, T_final = {T_final}, mu = {mu}")
-        print(f"Procesy MPI = {size}")
-        with open(results_filename, "w") as f:
-            f.write("# x t u\n")
-
     global_start, global_end = decompose_1d(N, size, rank)
     local_n = global_end - global_start
 
@@ -155,6 +148,16 @@ def simulate_roe_parallel(
     # turn off for now; for more, see the "compute_time_step" function
     # dt = compute_time_step(u_local, dx, mu, CFL, comm)
     n_steps = int(T_final / dt) + 1
+
+    if rank == 0:
+        print("Roe Burgers 1D MPI")
+        print(
+            f"N = {N}, L = {L}, T_final = {T_final}, mu = {mu}, time_steps = {n_steps}"
+        )
+        print(f"Procesy MPI = {size}")
+        with open(results_filename, "w") as f:
+            f.write("# x t u\n")
+
     if rank == 0:
         print(f"dx = {dx:.6e}, dt = {dt:.6e}")
 
@@ -169,7 +172,7 @@ def simulate_roe_parallel(
         if t > T_final:
             break
         exchange_halo(comm, u_local, left_neighbor, right_neighbor)
-        u_local = roe_step_local(u_local, dt, dx, mu, global_start, N)
+        u_local = roe_step_local(u_local, dt, dx, mu)
         apply_dirichlet(u_local, global_start, N)
 
         if not np.all(np.isfinite(u_local)):
@@ -194,11 +197,12 @@ def simulate_roe_parallel(
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 4:
-        raise ValueError(f"Usage: {sys.argv[0]} <N> <T_final> <dt>")
+    if len(sys.argv) != 5:
+        raise ValueError(f"Usage: {sys.argv[0]} <N> <T_final> <dt> <L>")
 
     N = int(sys.argv[1])
     T_final = float(sys.argv[2])
     dt = float(sys.argv[3])
+    L = float(sys.argv[4])
 
-    simulate_roe_parallel(N=N, T_final=T_final, dt=dt)
+    simulate_roe_parallel(N=N, T_final=T_final, dt=dt, L=L)
